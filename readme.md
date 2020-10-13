@@ -7,7 +7,7 @@
 Determine the "Fair" Value of your Favorite FIFA Players with Machine Learning.
 
 
-Author: Esaa Yamini
+Contributors: Grant Pittman, Tommy Ringo, Esaa Yamini, & Patrick Wickliff.
 
 
 # **Machine Learning Process**
