@@ -56,7 +56,6 @@ features_to_cluster = df.loc[:,'Crossing':'GKReflexes'].columns
 
 cluster_df = df.loc[:,features_to_cluster]
 cluster_df['Name'] = df['Name']
-cluster_df.head()
 
 #generating a list of features to append to a user selection drop down menu
 feature_list = list(cluster_df.columns) 
@@ -67,60 +66,120 @@ chosen_features = st.sidebar.multiselect('Please choose two features to compare'
 if len(chosen_features) < 2:
     st.warning('Please pick two features to proceed.')
     st.stop()
+
 chosen_feature1 = chosen_features[0]
 chosen_feature2 = chosen_features[1]
 
-#df is filtered to two user inpits for the chosen features
+#df is filtered to two user inpits plus name column
 df_chosen = cluster_df[[chosen_feature1, chosen_feature2, 'Name']]
 
+#next user selects the k value for clustering
 k = st.slider('Pick a K value', 2, 8, 5)
-
 kmeans = KMeans(n_clusters=k, random_state=0)
 y_pred = kmeans.fit_predict(df_chosen.drop('Name', axis=1))
 
 #code adapted from Aurelien Geron's book 'Hands on Machine Learning with Scikit-Learn, Keras, and TensorFlow'
-def plot_data(df_chosen):
-    plt.plot(df_chosen.loc[:,chosen_feature1], df_chosen.loc[:,chosen_feature2], 'k.', markersize=2)
+#below is for Matplot
 
-def plot_centroids(centroids, circle_color='w', cross_color='k'):
-    plt.scatter(centroids[:, 0], centroids[:, 1],
-                marker='o', s=30, linewidths=8,
-                color=circle_color, zorder=10, alpha=0.9)
-    plt.scatter(centroids[:, 0], centroids[:, 1],
-                marker='x', s=50, linewidths=50,
-                color=cross_color, zorder=11, alpha=1)
+with st.beta_expander("Matplot"):
+    def plot_data(df_chosen):
+        plt.plot(df_chosen.loc[:,chosen_feature1], df_chosen.loc[:,chosen_feature2], 'k.', markersize=2)
 
-def plot_decision_boundaries(clusterer, df_chosen, resolution=1000, show_centroids=True,
-                             show_xlabels=True, show_ylabels=True):
-    mins = df_chosen.drop('Name', axis=1).min(axis=0) - 0.1
-    maxs = df_chosen.drop('Name', axis=1).max(axis=0) + 0.1
-    xx, yy = np.meshgrid(np.linspace(mins[0], maxs[0], resolution),
-                         np.linspace(mins[1], maxs[1], resolution))
-    Z = clusterer.predict(np.c_[xx.ravel(), yy.ravel()])
-    Z = Z.reshape(xx.shape)
+    def plot_centroids(centroids, circle_color='w', cross_color='k'):
+        plt.scatter(centroids[:, 0], centroids[:, 1],
+                    marker='o', s=30, linewidths=8,
+                    color=circle_color, zorder=10, alpha=0.9)
+        plt.scatter(centroids[:, 0], centroids[:, 1],
+                    marker='x', s=50, linewidths=50,
+                    color=cross_color, zorder=11, alpha=1)
 
-    plt.contourf(Z, extent=(mins[0], maxs[0], mins[1], maxs[1]),
-                cmap="Pastel2")
-    plt.contour(Z, extent=(mins[0], maxs[0], mins[1], maxs[1]),
-                linewidths=1, colors='k')
-    plot_data(df_chosen)
-    if show_centroids:
-        plot_centroids(clusterer.cluster_centers_)
+    def plot_decision_boundaries(clusterer, df_chosen, resolution=1000, show_centroids=True,
+                                show_xlabels=True, show_ylabels=True):
+        mins = df_chosen.drop('Name', axis=1).min(axis=0) - 0.1
+        maxs = df_chosen.drop('Name', axis=1).max(axis=0) + 0.1
+        xx, yy = np.meshgrid(np.linspace(mins[0], maxs[0], resolution),
+                            np.linspace(mins[1], maxs[1], resolution))
+        Z = clusterer.predict(np.c_[xx.ravel(), yy.ravel()])
+        Z = Z.reshape(xx.shape)
 
-    if show_xlabels:
-        plt.xlabel(f"{chosen_feature1}", fontsize=14)
-    else:
-        plt.tick_params(labelbottom=False)
-    if show_ylabels:
-        plt.ylabel(f"{chosen_feature2}", fontsize=14, rotation=90)
-    else:
-        plt.tick_params(labelleft=False)
+        plt.contourf(Z, extent=(mins[0], maxs[0], mins[1], maxs[1]),
+                    cmap="Pastel2")
+        plt.contour(Z, extent=(mins[0], maxs[0], mins[1], maxs[1]),
+                    linewidths=1, colors='k')
+        plot_data(df_chosen)
+        if show_centroids:
+            plot_centroids(clusterer.cluster_centers_)
 
-plt.figure(figsize=(8, 4))
-plot = plot_decision_boundaries(kmeans, df_chosen)
+        if show_xlabels:
+            plt.xlabel(f"{chosen_feature1}", fontsize=14)
+        else:
+            plt.tick_params(labelbottom=False)
+        if show_ylabels:
+            plt.ylabel(f"{chosen_feature2}", fontsize=14, rotation=90)
+        else:
+            plt.tick_params(labelleft=False)
 
-st.pyplot(plot)
+    plt.figure(figsize=(8, 4))
+    plot = plot_decision_boundaries(kmeans, df_chosen)
 
+    #needed to remove PyplotGlobalUseWarning
+    st.set_option('deprecation.showPyplotGlobalUse', False)
+
+
+    st.pyplot(plot)
+
+#below is for Plot.ly
+
+with st.beta_expander("Plotly"):
+
+    def plot_decision_boundaries_plotly(clusterer, df_chosen, player=None):
+        x_min, x_max = df_chosen.loc[:, chosen_feature1].min() - 1, df_chosen.loc[:, chosen_feature1].max() + 1
+        y_min, y_max = df_chosen.loc[:, chosen_feature2].min() - 1, df_chosen.loc[:, chosen_feature2].max() + 1
+        #maxs = df_chosen.max(axis=0) + 0.1
+        xx, yy = np.meshgrid(np.arange(x_min, x_max, .02)
+                        , np.arange(y_min, y_max, .02))
+        y_ = np.arange(y_min, y_max, 0.02)
+        Z = clusterer.predict(np.c_[xx.ravel(), yy.ravel()])
+        Z = Z.reshape(xx.shape)
+
+        trace1 = go.Heatmap(x=xx[0], y=y_, z=Z,
+                    colorscale='Viridis',
+                    showscale=True)
+
+        trace2 = go.Scatter(x=df_chosen.loc[:,chosen_feature1], y=df_chosen.loc[:,chosen_feature2], 
+                        mode='markers',
+                        text=df['Name'],
+                        marker=dict(size=10,
+                                    color=df[chosen_feature1], 
+                                    colorscale='Viridis',
+                                    line=dict(color='black', width=1))
+                                    )
+
+        if player:
+            trace3 = go.Scatter(x=df_chosen.loc[df_chosen['Name'] == player, chosen_feature1], y=df_chosen.loc[df_chosen['Name'] == player, chosen_feature2],
+                    mode='markers',
+                    marker=dict(size=20,
+                                color='red',
+                                line=dict(color='black', width=2))
+            )
+            data = [trace1, trace2, trace3]
+        else:
+            data= [trace1, trace2]
+
+        layout= go.Layout(
+        autosize= True,
+        title= 'K-Means',
+        hovermode= 'closest',
+        showlegend= False)
+
+        #data = [trace1, trace2]
+        #fig = go.Figure(data=data, layout=layout)
+
+    player = st.text_input("which player are you interested in?", "L. Massi")
+        
+    plot2 = plot_decision_boundaries_plotly(kmeans, df_chosen, player=player)
+
+    st.plotly_chart(plot2)
 
 
 
