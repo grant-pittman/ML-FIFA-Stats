@@ -6,12 +6,14 @@ import matplotlib.pyplot as plt
 import plotly.graph_objects as go
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
+from sklearn.ensemble import RandomForestRegressor
+
 
 data_location = ('cleaned_data.csv')
 
 def main():
     st.sidebar.title("Navigation")
-    page = st.sidebar.radio("Choose a page", ['Homepage', 'Data', 'Kmeans'])
+    page = st.sidebar.radio("Choose a page", ['Homepage', 'Data', 'Kmeans', 'Regression'])
 
     if page == 'Homepage':
         #some formatting for the webapp
@@ -116,7 +118,6 @@ def main():
             #needed to remove PyplotGlobalUseWarning
             st.set_option('deprecation.showPyplotGlobalUse', False)
 
-
             st.pyplot(plot)
 
         #below is for Plot.ly
@@ -171,6 +172,57 @@ def main():
             plot2 = plot_decision_boundaries_plotly(kmeans, df_chosen, player=player)
 
             st.plotly_chart(plot2)
+    if page == "Regression":
+        data = pd.read_csv(data_location)
+
+        target = data["Value"]
+        features = data.drop(["Value","Name","Nationality","Club","Wage","Preferred Foot","Work Rate","Position","Jersey Number","Joined","Contract Valid Until"], axis=1)
+        
+        #Set column headers as feature names 
+        feature_names = features.columns
+
+        #RandomForestRegressor. Best for analyzing and ranking several features.
+        rf = RandomForestRegressor(n_estimators=900, random_state = 42)
+        rf = rf.fit(features, target)
+
+        importances = rf.feature_importances_
+
+        sorted(zip(rf.feature_importances_, feature_names), reverse=True)
+
+        X = features[['Age', 'Potential', 'Finishing', 'Reactions', 'Dribbling', 'BallControl', 'LongShots', 'Volleys', 'Vision']]
+        y = target.values.reshape(-1, 1)
+
+        #Split training and testing data.
+        from sklearn.model_selection import train_test_split
+        X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42)
+
+        #Normalize data.
+        from sklearn.preprocessing import StandardScaler
+        X_scaler = StandardScaler().fit(X_train)
+        y_scaler = StandardScaler().fit(y_train)
+
+        X_train_scaled = X_scaler.transform(X_train)
+        X_test_scaled = X_scaler.transform(X_test)
+        y_train_scaled = y_scaler.transform(y_train)
+        y_test_scaled = y_scaler.transform(y_test)
+
+        #Create logistic regression model.
+        from sklearn.linear_model import LinearRegression
+        model = LinearRegression()
+        model.fit(X_train_scaled, y_train_scaled)
+
+        #Plot results
+        predictions = model.predict(X_test_scaled)
+        model.fit(X_train_scaled, y_train_scaled)
+        plot3 = plt.scatter(model.predict(X_train_scaled), model.predict(X_train_scaled) - y_train_scaled, c="green", label="Actual Value")
+        plt.scatter(model.predict(X_test_scaled), model.predict(X_test_scaled) - y_test_scaled, c="orange", label="Predicted Value")
+        plt.legend()
+        plt.hlines(y=0, xmin=y_test_scaled.min(), xmax=y_test_scaled.max())
+        plt.title("FIFA 18' Player Value")
+        plt.show()
+
+        st.pyplot()
+
 
 if __name__ == '__main__':
     main()
