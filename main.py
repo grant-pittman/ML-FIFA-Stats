@@ -10,7 +10,8 @@ from sklearn.metrics import silhouette_score
 data_location = ('cleaned_data.csv')
 
 def main():
-    page = st.sidebar.selectbox("Choose a page", ['Homepage', 'Data', 'Kmeans'])
+    st.sidebar.title("Navigation")
+    page = st.sidebar.radio("Choose a page", ['Homepage', 'Data', 'Kmeans'])
 
     if page == 'Homepage':
         #some formatting for the webapp
@@ -21,11 +22,11 @@ def main():
         """
         This is a project that uses ML to determine player pay based on their differnt skill levels
         """)
+        st.info("These containers look nice")
 
     if page == "Data":
 
-        #storing the location of our cleaned data 
-
+        
         #lets user pick how many rows they want to see in the app
         def load_data(nrows):
             data = pd.read_csv(data_location, encoding = 'latin1', nrows=nrows)
