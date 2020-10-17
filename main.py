@@ -132,68 +132,63 @@ def main():
         kmeans = KMeans(n_clusters=k, random_state=0)
         y_pred = kmeans.fit_predict(df_chosen.drop("Name", axis=1))
 
+        player = st.text_input("Which player do you want to Highlight?", 'Cristiano Ronaldo')
+
+        
+        #using a silhouette score to determine the best k-value 
+        st.markdown('Silhouette Scores')
+        kmeans_per_k = [KMeans(n_clusters=k, random_state=0).fit(df_chosen.drop('Name', axis=1)) for k in range(2,10)]
+
+        silhouette_scores = [silhouette_score(df_chosen.drop('Name', axis=1), model.labels_) for model in kmeans_per_k]
+
+        plt.figure(figsize=(8, 5))
+        fig4 = plt.plot(range(2, 10), silhouette_scores, "bo-")
+        plt.xlabel("Number of Clusters (k)", fontsize=14)
+        plt.ylabel("Silhouette score", fontsize=14)
+
+        st.pyplot(fig4)
+
+        chart_data = pd.DataFrame(
+        np.arange(2, 10),
+        silhouette_scores)
+
+        st.line_chart(chart_data)
+
         # code adapted from Aurelien Geron's book 'Hands on Machine Learning with Scikit-Learn, Keras, and TensorFlow'
         # below is for Matplot
 
         with st.beta_expander("Matplot"):
 
             def plot_data(df_chosen):
-                plt.plot(
-                    df_chosen.loc[:, chosen_feature1],
-                    df_chosen.loc[:, chosen_feature2],
-                    "k.",
-                    markersize=2,
-                )
+                plt.plot(df_chosen.loc[:,chosen_feature1], df_chosen.loc[:,chosen_feature2], 'k.', markersize=10)
 
-            def plot_centroids(centroids, circle_color="w", cross_color="k"):
-                plt.scatter(
-                    centroids[:, 0],
-                    centroids[:, 1],
-                    marker="o",
-                    s=30,
-                    linewidths=8,
-                    color=circle_color,
-                    zorder=10,
-                    alpha=0.9,
-                )
-                plt.scatter(
-                    centroids[:, 0],
-                    centroids[:, 1],
-                    marker="x",
-                    s=50,
-                    linewidths=50,
-                    color=cross_color,
-                    zorder=11,
-                    alpha=1,
-                )
+            def plot_centroids(centroids, circle_color='seagreen', cross_color='k'):
+                plt.scatter(centroids[:, 0], centroids[:, 1], s=30, linewidths=8,
+                            color=circle_color, zorder=10, alpha=0.5)
+                #plt.scatter(centroids[:, 0], centroids[:, 1], s=50, linewidths=50,
+                #           color=cross_color, zorder=11, alpha=1)
 
-            def plot_decision_boundaries(
-                clusterer,
-                df_chosen,
-                resolution=1000,
-                show_centroids=True,
-                show_xlabels=True,
-                show_ylabels=True,
-            ):
-                mins = df_chosen.drop("Name", axis=1).min(axis=0) - 0.1
-                maxs = df_chosen.drop("Name", axis=1).max(axis=0) + 0.1
-                xx, yy = np.meshgrid(
-                    np.linspace(mins[0], maxs[0], resolution),
-                    np.linspace(mins[1], maxs[1], resolution),
-                )
+            def plot_decision_boundaries(clusterer, df_chosen, resolution=1000, show_centroids=True,
+                                        show_xlabels=True, show_ylabels=True, player=None):
+                mins = df_chosen[[chosen_feature1, chosen_feature2]].min(axis=0) - 0.1
+                maxs = df_chosen[[chosen_feature1, chosen_feature2]].max(axis=0) + 0.1
+                xx, yy = np.meshgrid(np.linspace(mins[0], maxs[0], resolution),
+                                    np.linspace(mins[1], maxs[1], resolution))
                 Z = clusterer.predict(np.c_[xx.ravel(), yy.ravel()])
                 Z = Z.reshape(xx.shape)
 
-                plt.contourf(
-                    Z, extent=(mins[0], maxs[0], mins[1], maxs[1]), cmap="Pastel2"
-                )
-                plt.contour(
-                    Z,
-                    extent=(mins[0], maxs[0], mins[1], maxs[1]),
-                    linewidths=1,
-                    colors="k",
-                )
+                plt.contourf(Z, extent=(mins[0], maxs[0], mins[1], maxs[1]),
+                            cmap="viridis", alpha=0.7)
+                plt.contour(Z, extent=(mins[0], maxs[0], mins[1], maxs[1]),
+                            linewidths=1, colors='k')
+                
+                
                 plot_data(df_chosen)
+
+
+                if player:
+                    plt.scatter(df_chosen.loc[df_chosen['Name'] == player, chosen_feature1], df_chosen.loc[df_chosen['Name'] == player, chosen_feature2], color='red', s=700, marker='*', edgecolors='red', linewidths=3)
+
                 if show_centroids:
                     plot_centroids(clusterer.cluster_centers_)
 
@@ -207,14 +202,14 @@ def main():
                     plt.tick_params(labelleft=False)
 
             plt.figure(figsize=(8, 4))
-            plot = plot_decision_boundaries(kmeans, df_chosen)
+            plot = plot_decision_boundaries(kmeans, df_chosen, player = player)
 
             # needed to remove PyplotGlobalUseWarning
             st.set_option("deprecation.showPyplotGlobalUse", False)
 
             st.pyplot(plot)
 
-        # below is for Plot.ly
+        # below is for Plot.ly but it is not working yet
 
         with st.beta_expander("Plotly"):
 
