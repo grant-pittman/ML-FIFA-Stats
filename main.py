@@ -9,6 +9,7 @@ from sklearn.metrics import silhouette_score
 from sklearn.ensemble import RandomForestRegressor
 from streamlit_folium import folium_static
 import folium
+from sklearn.mixture import GaussianMixture
 
 
 data_location = "cleaned_data.csv"
@@ -17,7 +18,7 @@ data_location = "cleaned_data.csv"
 def main():
     st.sidebar.title("Navigation")
     page = st.sidebar.radio(
-        "Choose a page", ["Homepage", "Data", "Kmeans", "Regression"]
+        "Choose a page", ["Homepage", "Data", "Regression", "Clustering"]
     )
 
     if page == "Homepage":
@@ -100,7 +101,7 @@ def main():
             ).add_to(map)
         folium_static(map)
 
-    if page == "Kmeans":
+    if page == "Clustering":
         df = pd.read_csv(data_location)
 
         # only considering FIFA stats for clustering
@@ -114,11 +115,11 @@ def main():
         feature_list.remove("Name")
 
         # sidebar multiselection to allow user to pick which features to use for clustering
+        st.info("Please choose two features to compare. Consider using the most important features determined by regression")
         chosen_features = st.multiselect(
-            "Please choose two features to compare", feature_list
+            "", feature_list
         )
         if len(chosen_features) < 2:
-            st.warning("Please pick two features to proceed.")
             st.stop()
 
         chosen_feature1 = chosen_features[0]
@@ -127,37 +128,47 @@ def main():
         # df is filtered to two user inpits plus name column
         df_chosen = cluster_df[[chosen_feature1, chosen_feature2, "Name"]]
 
-        # next user selects the k value for clustering
-        k = st.slider("Pick a K value", 2, 8, 5)
-        kmeans = KMeans(n_clusters=k, random_state=0)
-        y_pred = kmeans.fit_predict(df_chosen.drop("Name", axis=1))
+        with st.beta_expander("Kmeans"):
 
-        player = st.text_input("Which player do you want to Highlight?", 'Cristiano Ronaldo')
 
+            # next user selects the k value for clustering
+            st.info("Please choose a k value to change the chart")
+            k = st.slider("", 2, 8, 5)
+
+            st.info("Or if you dont know, use the auto value")
         
-        #using a silhouette score to determine the best k-value 
-        st.markdown('Silhouette Scores')
-        kmeans_per_k = [KMeans(n_clusters=k, random_state=0).fit(df_chosen.drop('Name', axis=1)) for k in range(2,10)]
+            if st.button("Auto value"):
+                st.info("Okay well use the auto value now")
+                #using a silhouette score to determine the best k-value 
+                kmeans_per_k = [KMeans(n_clusters=k, random_state=0).fit(df_chosen.drop('Name', axis=1)) for k in range(2,10)]
+                silhouette_scores = [silhouette_score(df_chosen.drop('Name', axis=1), model.labels_) for model in kmeans_per_k]
+                #have not been able to get Tommy's original matplot code to work
 
-        silhouette_scores = [silhouette_score(df_chosen.drop('Name', axis=1), model.labels_) for model in kmeans_per_k]
+                # plt.figure(figsize=(8, 5))
+                # y = np.arange(2,10)
+                # fig4 = plt.plot(y, silhouette_scores)
+                # plt.xlabel("Number of Clusters (k)", fontsize=14)
+                # plt.ylabel("Silhouette score", fontsize=14)
+                # st.pyplot(fig4)
 
-        plt.figure(figsize=(8, 5))
-        fig4 = plt.plot(range(2, 10), silhouette_scores, "bo-")
-        plt.xlabel("Number of Clusters (k)", fontsize=14)
-        plt.ylabel("Silhouette score", fontsize=14)
+                #simplified chart that is correctly rendering
+                y = np.arange(2,10)
+                chart_data = pd.DataFrame(silhouette_scores,y)
+                st.line_chart(chart_data)
+                top_score = silhouette_scores.index(max(silhouette_scores))
+                best_k_value = y[top_score]
+                st.info('Here is the score for each K-value and you can see why we picked ' + str(best_k_value))
 
-        st.pyplot(fig4)
+                kmeans = KMeans(n_clusters=best_k_value, random_state=0)
+                y_pred = kmeans.fit_predict(df_chosen.drop("Name", axis=1))
 
-        chart_data = pd.DataFrame(
-        np.arange(2, 10),
-        silhouette_scores)
 
-        st.line_chart(chart_data)
+            else:
+                kmeans = KMeans(n_clusters=k, random_state=0)
+                y_pred = kmeans.fit_predict(df_chosen.drop("Name", axis=1))
 
-        # code adapted from Aurelien Geron's book 'Hands on Machine Learning with Scikit-Learn, Keras, and TensorFlow'
-        # below is for Matplot
-
-        with st.beta_expander("Matplot"):
+            # code adapted from Aurelien Geron's book 'Hands on Machine Learning with Scikit-Learn, Keras, and TensorFlow'
+            # below is for Matplot
 
             def plot_data(df_chosen):
                 plt.plot(df_chosen.loc[:,chosen_feature1], df_chosen.loc[:,chosen_feature2], 'k.', markersize=10)
@@ -202,6 +213,8 @@ def main():
                     plt.tick_params(labelleft=False)
 
             plt.figure(figsize=(8, 4))
+            player = st.text_input("Which player do you want to Highlight?", 'Cristiano Ronaldo')
+
             plot = plot_decision_boundaries(kmeans, df_chosen, player = player)
 
             # needed to remove PyplotGlobalUseWarning
@@ -209,72 +222,115 @@ def main():
 
             st.pyplot(plot)
 
-        # below is for Plot.ly but it is not working yet
 
-        with st.beta_expander("Plotly"):
 
-            def plot_decision_boundaries_plotly(clusterer, df_chosen, player=None):
-                x_min, x_max = (
-                    df_chosen.loc[:, chosen_feature1].min() - 1,
-                    df_chosen.loc[:, chosen_feature1].max() + 1,
-                )
-                y_min, y_max = (
-                    df_chosen.loc[:, chosen_feature2].min() - 1,
-                    df_chosen.loc[:, chosen_feature2].max() + 1,
-                )
-                # maxs = df_chosen.max(axis=0) + 0.1
-                xx, yy = np.meshgrid(
-                    np.arange(x_min, x_max, 0.02), np.arange(y_min, y_max, 0.02)
-                )
-                y_ = np.arange(y_min, y_max, 0.02)
-                Z = clusterer.predict(np.c_[xx.ravel(), yy.ravel()])
+            # below is for Plot.ly but it is not working yet
+
+            # with st.beta_expander("Plotly"):
+
+            #     def plot_decision_boundaries_plotly(clusterer, df_chosen, player=None):
+            #         x_min, x_max = (
+            #             df_chosen.loc[:, chosen_feature1].min() - 1,
+            #             df_chosen.loc[:, chosen_feature1].max() + 1,
+            #         )
+            #         y_min, y_max = (
+            #             df_chosen.loc[:, chosen_feature2].min() - 1,
+            #             df_chosen.loc[:, chosen_feature2].max() + 1,
+            #         )
+            #         # maxs = df_chosen.max(axis=0) + 0.1
+            #         xx, yy = np.meshgrid(
+            #             np.arange(x_min, x_max, 0.02), np.arange(y_min, y_max, 0.02)
+            #         )
+            #         y_ = np.arange(y_min, y_max, 0.02)
+            #         Z = clusterer.predict(np.c_[xx.ravel(), yy.ravel()])
+            #         Z = Z.reshape(xx.shape)
+
+            #         trace1 = go.Heatmap(
+            #             x=xx[0], y=y_, z=Z, colorscale="Viridis", showscale=True
+            #         )
+
+            #         trace2 = go.Scatter(
+            #             x=df_chosen.loc[:, chosen_feature1],
+            #             y=df_chosen.loc[:, chosen_feature2],
+            #             mode="markers",
+            #             text=df["Name"],
+            #             marker=dict(
+            #                 size=10,
+            #                 color=df[chosen_feature1],
+            #                 colorscale="Viridis",
+            #                 line=dict(color="black", width=1),
+            #             ),
+            #         )
+
+            #         if player:
+            #             trace3 = go.Scatter(
+            #                 x=df_chosen.loc[df_chosen["Name"] == player, chosen_feature1],
+            #                 y=df_chosen.loc[df_chosen["Name"] == player, chosen_feature2],
+            #                 mode="markers",
+            #                 marker=dict(
+            #                     size=20, color="red", line=dict(color="black", width=2)
+            #                 ),
+            #             )
+            #             data = [trace1, trace2, trace3]
+            #         else:
+            #             data = [trace1, trace2]
+
+            #         layout = go.Layout(
+            #             autosize=True,
+            #             title="K-Means",
+            #             hovermode="closest",
+            #             showlegend=False,
+            #         )
+
+            #         # data = [trace1, trace2]
+            #         # fig = go.Figure(data=data, layout=layout)
+
+            #     player = st.text_input("which player are you interested in?", "L. Massi")
+
+            #     plot2 = plot_decision_boundaries_plotly(kmeans, df_chosen, player=player)
+
+            #     st.plotly_chart(plot2)
+        with st.beta_expander("Gausian Blur"):
+            gm = GaussianMixture(n_components=4, n_init=10, random_state=0)
+            gm.fit(df_chosen.drop('Name', axis=1))
+
+            from matplotlib.colors import LogNorm
+
+            def plot_gaussian_mixture(clusterer, df_chosen, resolution=1000, show_ylabels=True, player=None):
+                mins = df_chosen.drop('Name', axis=1).min(axis=0) - 0.1
+                maxs = df_chosen.drop('Name', axis=1).max(axis=0) + 0.1
+                xx, yy = np.meshgrid(np.linspace(mins[0], maxs[0], resolution),
+                                    np.linspace(mins[1], maxs[1], resolution))
+                Z = -clusterer.score_samples(np.c_[xx.ravel(), yy.ravel()])
                 Z = Z.reshape(xx.shape)
 
-                trace1 = go.Heatmap(
-                    x=xx[0], y=y_, z=Z, colorscale="Viridis", showscale=True
-                )
+                plt.contourf(xx, yy, Z,
+                            norm=LogNorm(vmin=1.0, vmax=30.0),
+                            levels=np.logspace(0, 2, 12), cmap='viridis')
+                plt.contour(xx, yy, Z,
+                            norm=LogNorm(vmin=1.0, vmax=30.0),
+                            levels=np.logspace(0, 2, 12),
+                            linewidths=1, colors='k')
 
-                trace2 = go.Scatter(
-                    x=df_chosen.loc[:, chosen_feature1],
-                    y=df_chosen.loc[:, chosen_feature2],
-                    mode="markers",
-                    text=df["Name"],
-                    marker=dict(
-                        size=10,
-                        color=df[chosen_feature1],
-                        colorscale="Viridis",
-                        line=dict(color="black", width=1),
-                    ),
-                )
-
+                Z = clusterer.predict(np.c_[xx.ravel(), yy.ravel()])
+                Z = Z.reshape(xx.shape)
+                plt.contour(xx, yy, Z,
+                            linewidths=2, colors='r', linestyles='dashed')
+                
+                plt.plot(df_chosen.loc[:, chosen_feature1], df_chosen.loc[:, chosen_feature2], 'k.', markersize=10)
+                #plot_centroids(clusterer.means_, clusterer.weights_)
                 if player:
-                    trace3 = go.Scatter(
-                        x=df_chosen.loc[df_chosen["Name"] == player, chosen_feature1],
-                        y=df_chosen.loc[df_chosen["Name"] == player, chosen_feature2],
-                        mode="markers",
-                        marker=dict(
-                            size=20, color="red", line=dict(color="black", width=2)
-                        ),
-                    )
-                    data = [trace1, trace2, trace3]
+                    plt.scatter(df_chosen.loc[df_chosen['Name'] == player, chosen_feature1], df_chosen.loc[df_chosen['Name'] == player, chosen_feature2], color='red', s=700, marker='*', edgecolors='red', linewidths=3)
+
+                plt.xlabel("$x_1$", fontsize=14)
+                if show_ylabels:
+                    plt.ylabel("$x_2$", fontsize=14, rotation=0)
                 else:
-                    data = [trace1, trace2]
+                    plt.tick_params(labelleft=False)
+            
+            fig5 = plot_gaussian_mixture(gm, df_chosen, player='L. Messi')
+            st.pyplot(fig5)
 
-                layout = go.Layout(
-                    autosize=True,
-                    title="K-Means",
-                    hovermode="closest",
-                    showlegend=False,
-                )
-
-                # data = [trace1, trace2]
-                # fig = go.Figure(data=data, layout=layout)
-
-            player = st.text_input("which player are you interested in?", "L. Massi")
-
-            plot2 = plot_decision_boundaries_plotly(kmeans, df_chosen, player=player)
-
-            st.plotly_chart(plot2)
     if page == "Regression":
         data = pd.read_csv(data_location)
 
