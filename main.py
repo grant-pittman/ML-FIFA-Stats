@@ -32,7 +32,13 @@ def main():
         This is a project that uses ML to determine player pay based on their differnt skill levels
         """
         )
-        st.info("These containers look nice")
+
+        st.markdown("Our dataset includes player attributes from the popular video game FIFA 2018 by EA Sports")
+        st.markdown("The higher the player value, the better their ability in that area.")
+        st.markdown("With so many player attributes to choose from, we used Random Forest Regresssion to determine feature imporance")
+        st.markdown("Next, we selected the most important features to train our model and make predictions.")
+        st.markdown("**AGE – POTENTIAL – FINISHING – REACTIONS – DRIBBLING – BALL CONTROL – LONG SHOTS – VOLLEYS – VISION** contributed the most to our model's predictive power")
+        
 
     if page == "Data":
 
@@ -42,16 +48,50 @@ def main():
             return data
 
         # allows user to toggle visibility of the data
-        if st.checkbox("Show raw data"):
+        if st.sidebar.checkbox("Show raw data"):
             with st.beta_container():
                 data_points = st.slider("data points", 0, 100, 50)
                 data = load_data(data_points)
                 st.subheader("Raw data")
                 st.dataframe(data)
 
-        map = folium.Map(location=['7.54', '-5.5471'], tiles="Stamen Toner", zoom_start=3)
-
+        
         df = pd.read_csv("cleaned_data.csv")
+
+        features_to_cluster = df.loc[:, "Crossing":"GKReflexes"].columns
+
+        cluster_df = df.loc[:, features_to_cluster]
+        cluster_df["Name"] = df["Name"]
+
+        # generating a list of features to append to a user selection drop down menu
+        feature_list = list(cluster_df.columns)
+        feature_list.remove("Name")
+
+        # sidebar multiselection to allow user to pick which features to use for clustering
+        st.info("Please choose a feature to see the best players")
+        chosen_features = st.sidebar.selectbox(
+            "", feature_list
+        )
+        
+        if chosen_features:
+            user_selection = df[[chosen_features, "Name"]].sort_values(chosen_features, ascending = False).nlargest(10, chosen_features)
+            
+            x = user_selection["Name"]
+            y = user_selection[chosen_features]
+
+            def feature_bar_chart():
+                plt.bar(x,y)
+                plt.title(f' Players With The Highest {chosen_features}')
+                plt.xticks(x, rotation='vertical')
+
+            plot9 = feature_bar_chart()
+            st.pyplot(plot9)
+        else:
+            st.stop()
+
+
+        map = folium.Map(location=['7.54', '-5.5471'], tiles="Stamen Toner", zoom_start=2)
+
         grouped_by_country = df.groupby("Nationality", as_index=False)["Name"].count()
 
         grouped_by_avg_value = df.groupby('Nationality', as_index=False)['Value'].mean()
@@ -338,7 +378,9 @@ def main():
                 else:
                     plt.tick_params(labelleft=False)
             
-            fig5 = plot_gaussian_mixture(gm, df_chosen, player='L. Messi', plot_anomalies=True)
+            player = st.text_input("Which player are you interested in?", "L. Messi")
+
+            fig5 = plot_gaussian_mixture(gm, df_chosen, player=player, plot_anomalies=True)
 
             st.pyplot(fig5)
 
@@ -369,7 +411,7 @@ def main():
         feature_names = features.columns
 
         
-        n_estimators = st.slider("Choose the number of trees", 0, 1000, 500)
+        n_estimators = st.sidebar.slider("Choose the number of trees", 0, 1000, 500)
 
     
         # RandomForestRegressor. Best for analyzing and ranking several features.
@@ -397,14 +439,14 @@ def main():
         col1, col2 = st.beta_columns(2)
 
         with col1:
-            st.dataframe(df)
+            st.dataframe(df.sort_values("Scores", ascending = False))
 
         with col2:
             plot7 = create_bar_chart()
 
             st.pyplot(plot7)
 
-        selected_features = st.multiselect("Which features do you want to use in the model?", feature_names)
+        selected_features = st.sidebar.multiselect("Which features do you want to use in the model?", feature_names)
 
         y = target.values.reshape(-1, 1)
 
@@ -413,7 +455,7 @@ def main():
         ]
         
 
-        if st.button("Train model"):
+        if st.sidebar.button("Train model"):
             # Split training and testing data.
             from sklearn.model_selection import train_test_split
 
