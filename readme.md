@@ -9,13 +9,13 @@ Determine the "Fair" Value of your Favorite FIFA Players with Machine Learning.
 
 # **Contributors**
 
-Grant Pittman -
+Grant Pittman - Streamlit.
 
-Tommy Ringo -
+Tommy Ringo - Machine Learning. Python. Clustering.
 
 Esaa Yamini - Machine Learning. Python. (Predict Player Values in Euros)
 
-Patrick Wickliff -
+Patrick Wickliff - Visualizations.
 
 
 # **Machine Learning Process**
