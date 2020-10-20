@@ -10,6 +10,7 @@ from sklearn.ensemble import RandomForestRegressor
 from streamlit_folium import folium_static
 import folium
 from sklearn.mixture import GaussianMixture
+import geopandas as gpd 
 
 
 data_location = "cleaned_data.csv"
@@ -48,15 +49,20 @@ def main():
                 st.subheader("Raw data")
                 st.dataframe(data)
 
-        map = folium.Map(location=["21", "-10.94"], tiles="Stamen Toner", zoom_start=2)
+        map = folium.Map(location=['7.54', '-5.5471'], tiles="Stamen Toner", zoom_start=3)
 
         df = pd.read_csv("cleaned_data.csv")
         grouped_by_country = df.groupby("Nationality", as_index=False)["Name"].count()
-        grouped_by_country.rename(columns={"Name": "Player Count"}, inplace=True)
-        country_lat_long = pd.read_csv("country_lat_long.csv", encoding="cp1252")
-        merged_df = grouped_by_country.merge(
-            country_lat_long, left_on="Nationality", right_on="name", how="left"
-        )
+
+        grouped_by_avg_value = df.groupby('Nationality', as_index=False)['Value'].mean()
+
+        grouped_by_country.rename(columns={'Name': 'Player Count'}, inplace=True)
+
+        country_lat_long = pd.read_csv('country_lat_long.csv', encoding='cp1252')
+
+
+        merged_df = grouped_by_avg_value.merge(country_lat_long, left_on='Nationality', right_on='name', how='left')
+
         merged_df.loc[
             merged_df["Nationality"] == "Bosnia Herzegovina", "latitude"
         ] = 43.915886
@@ -88,17 +94,15 @@ def main():
 
         for i in range(len(merged_df)):
             folium.Circle(
-                location=[
-                    merged_df.iloc[i]["latitude"],
-                    merged_df.iloc[i]["longitude"],
-                ],
-                popup=f"Country: {merged_df.iloc[i]['Nationality']}, Player Count: {int(merged_df.iloc[i]['Player Count'])}",
-                radius=float(merged_df.iloc[i]["Player Count"] * 5000),
-                color="crimson",
-                fill=True,
-                fill_color="crimson",
-                fill_opacity=0.8,
+            location=[merged_df.iloc[i]['latitude'], merged_df.iloc[i]['longitude']],
+            popup=f"Country: {merged_df.iloc[i]['Nationality']}, Avg. Value: {round(merged_df.iloc[i]['Value'],1)}",
+            radius=float(merged_df.iloc[i]['Value']*5000),
+            color='crimson',
+            fill=True,
+            fill_color='crimson',
+            fill_opacity=0.8
             ).add_to(map)
+
         folium_static(map)
 
     if page == "Clustering":
@@ -337,6 +341,8 @@ def main():
         target = data["Value"]
         features = data.drop(
             [
+                "No",
+                "ID",
                 "Value",
                 "Name",
                 "Nationality",
@@ -348,6 +354,7 @@ def main():
                 "Jersey Number",
                 "Joined",
                 "Contract Valid Until",
+                "Feet"
             ],
             axis=1,
         )
@@ -355,72 +362,150 @@ def main():
         # Set column headers as feature names
         feature_names = features.columns
 
+        
+        n_estimators = st.slider("Choose the number of trees", 0, 1000, 500)
+
+    
         # RandomForestRegressor. Best for analyzing and ranking several features.
-        rf = RandomForestRegressor(n_estimators=900, random_state=42)
+        rf = RandomForestRegressor(n_estimators=n_estimators, random_state=42)
         rf = rf.fit(features, target)
 
         importances = rf.feature_importances_
 
-        sorted(zip(rf.feature_importances_, feature_names), reverse=True)
+        df = pd.DataFrame({'Features' : feature_names, 'Scores' : importances})
 
-        X = features[
-            [
-                "Age",
-                "Potential",
-                "Finishing",
-                "Reactions",
-                "Dribbling",
-                "BallControl",
-                "LongShots",
-                "Volleys",
-                "Vision",
-            ]
-        ]
+
+        def create_bar_chart():
+            top_features = df.nlargest(10, "Scores")
+            a = top_features["Scores"]
+            b = top_features["Features"]
+            plt.bar(b,a)
+            
+            plt.xlabel("Features")
+            plt.xticks(b, rotation='vertical')
+            plt.ylabel("Score")
+
+        st.info("Here are the most important features for the model")
+       
+
+        col1, col2 = st.beta_columns(2)
+
+        with col1:
+            st.dataframe(df)
+
+        with col2:
+            plot7 = create_bar_chart()
+
+            st.pyplot(plot7)
+
+        selected_features = st.multiselect("Which features do you want to use in the model?", feature_names)
+
         y = target.values.reshape(-1, 1)
 
-        # Split training and testing data.
-        from sklearn.model_selection import train_test_split
+        X = features[
+            selected_features
+        ]
+        
 
-        X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42)
+        if st.button("Train model"):
+            # Split training and testing data.
+            from sklearn.model_selection import train_test_split
 
-        # Normalize data.
-        from sklearn.preprocessing import StandardScaler
+            X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42)
 
-        X_scaler = StandardScaler().fit(X_train)
-        y_scaler = StandardScaler().fit(y_train)
+            # Normalize data.
+            from sklearn.preprocessing import StandardScaler
 
-        X_train_scaled = X_scaler.transform(X_train)
-        X_test_scaled = X_scaler.transform(X_test)
-        y_train_scaled = y_scaler.transform(y_train)
-        y_test_scaled = y_scaler.transform(y_test)
+            X_scaler = StandardScaler().fit(X_train)
+            y_scaler = StandardScaler().fit(y_train)
 
-        # Create linear regression model.
-        from sklearn.linear_model import LinearRegression
+            X_train_scaled = X_scaler.transform(X_train)
+            X_test_scaled = X_scaler.transform(X_test)
+            y_train_scaled = y_scaler.transform(y_train)
+            y_test_scaled = y_scaler.transform(y_test)
 
-        model = LinearRegression()
-        model.fit(X_train_scaled, y_train_scaled)
+            # Create linear regression model.
+            from sklearn.linear_model import LinearRegression
 
-        # Plot results
-        predictions = model.predict(X_test_scaled)
-        model.fit(X_train_scaled, y_train_scaled)
-        plot3 = plt.scatter(
-            model.predict(X_train_scaled),
-            model.predict(X_train_scaled) - y_train_scaled,
-            c="green",
-            label="Actual Value",
-        )
-        plt.scatter(
-            model.predict(X_test_scaled),
-            model.predict(X_test_scaled) - y_test_scaled,
-            c="orange",
-            label="Predicted Value",
-        )
-        plt.legend()
-        plt.hlines(y=0, xmin=y_test_scaled.min(), xmax=y_test_scaled.max())
-        plt.title("FIFA 18' Player Value")
-        plt.show()
+            model = LinearRegression()
+            model.fit(X_train_scaled, y_train_scaled)
 
-        st.pyplot()
+            # Plot results
+            predictions = model.predict(X_test_scaled)
+            model.fit(X_train_scaled, y_train_scaled)
+            plot3 = plt.scatter(
+                model.predict(X_train_scaled),
+                model.predict(X_train_scaled) - y_train_scaled,
+                c="green",
+                label="Training Data",
+            )
+            plt.scatter(
+                model.predict(X_test_scaled),
+                model.predict(X_test_scaled) - y_test_scaled,
+                c="orange",
+                label="Testing Data",
+            )
+            plt.legend()
+            plt.hlines(y=0, xmin=y_test_scaled.min(), xmax=y_test_scaled.max())
+            plt.title("Residual Plot")
+            plt.show()
+
+            st.pyplot()
+
+            model.fit(X_train, y_train.ravel())
+
+            st.markdown(f"Training Data Score: {model.score(X_train, y_train)}")
+            st.markdown(f"Testing Data Score: {model.score(X_test, y_test)}")
+
+
+            top_players = data.nlargest(10, "Value")
+            top_name = top_players["Name"]
+            top_value = top_players["Value"]
+
+            top_features = top_players[selected_features]
+
+            predictions = np.round(model.predict(top_features),1)
+
+           
+            def value_bar_chart():
+                N = 10
+                men_means = predictions
+
+                ind = np.arange(N)  # the x locations for the groups
+                width = 0.35       # the width of the bars
+
+                fig, ax = plt.subplots()
+                rects1 = ax.bar(ind, men_means, width, color='r')
+
+                women_means = top_value
+                rects2 = ax.bar(ind + width, women_means, width, color='y')
+
+                # add some text for labels, title and axes ticks
+                ax.set_ylabel('Value')
+                ax.set_title('Predicted V.S. Actual Player Value')
+                ax.set_xticks(ind + width / 2)
+                ax.set_xticklabels(top_name)
+                plt.xticks(rotation=45)
+
+                ax.legend((rects1[0], rects2[0]), ('Prediction', 'Actual'))
+
+
+                def autolabel(rects):
+                    """
+                    Attach a text label above each bar displaying its height
+                    """
+                    for rect in rects:
+                        height = rect.get_height()
+                        ax.text(rect.get_x() + rect.get_width()/2., 1.05*height,
+                                '%d' % int(height),
+                                ha='center', va='bottom')
+
+                autolabel(rects1)
+                autolabel(rects2)
+
+                plt.show()
+            plot8 = value_bar_chart()
+            st.pyplot(plot8)
 
 
 if __name__ == "__main__":
