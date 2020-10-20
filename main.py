@@ -341,7 +341,6 @@ def main():
         target = data["Value"]
         features = data.drop(
             [
-                "No",
                 "ID",
                 "Value",
                 "Name",
@@ -510,4 +509,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+st.set_option('deprecation.showPyplotGlobalUse', False)
+
 
