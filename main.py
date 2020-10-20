@@ -11,7 +11,7 @@ from streamlit_folium import folium_static
 import folium
 from sklearn.mixture import GaussianMixture
 import geopandas as gpd 
-
+from math import pi
 
 data_location = "cleaned_data.csv"
 
@@ -19,7 +19,7 @@ data_location = "cleaned_data.csv"
 def main():
     st.sidebar.title("Navigation")
     page = st.sidebar.radio(
-        "Choose a page", ["Homepage", "Data", "Regression", "Clustering"]
+        "Choose a page", ["Homepage", "Data", "Regression", "Clustering", "Player Stats"]
     )
 
     if page == "Homepage":
@@ -298,9 +298,10 @@ def main():
             gm = GaussianMixture(n_components=4, n_init=10, random_state=0)
             gm.fit(df_chosen.drop('Name', axis=1))
 
+
             from matplotlib.colors import LogNorm
 
-            def plot_gaussian_mixture(clusterer, df_chosen, resolution=1000, show_ylabels=True, player=None):
+            def plot_gaussian_mixture(clusterer, df_chosen, resolution=1000, show_ylabels=True, player=None, plot_anomalies = False, density_cutoff = 2):
                 mins = df_chosen.drop('Name', axis=1).min(axis=0) - 0.1
                 maxs = df_chosen.drop('Name', axis=1).max(axis=0) + 0.1
                 xx, yy = np.meshgrid(np.linspace(mins[0], maxs[0], resolution),
@@ -325,6 +326,11 @@ def main():
                 #plot_centroids(clusterer.means_, clusterer.weights_)
                 if player:
                     plt.scatter(df_chosen.loc[df_chosen['Name'] == player, chosen_feature1], df_chosen.loc[df_chosen['Name'] == player, chosen_feature2], color='red', s=700, marker='*', edgecolors='red', linewidths=3)
+                if plot_anomalies:
+                    densities = clusterer.score_samples(df_chosen.drop('Name', axis=1))
+                    density_threshold = np.percentile(densities, 2)
+                    anomalies = df_chosen[densities < density_threshold]
+                    plt.scatter(anomalies.loc[:, chosen_feature1], anomalies.loc[:, chosen_feature2], color='gray', s=400, edgecolors='gray', linewidths=3)
 
                 plt.xlabel("$x_1$", fontsize=14)
                 if show_ylabels:
@@ -332,7 +338,8 @@ def main():
                 else:
                     plt.tick_params(labelleft=False)
             
-            fig5 = plot_gaussian_mixture(gm, df_chosen, player='L. Messi')
+            fig5 = plot_gaussian_mixture(gm, df_chosen, player='L. Messi', plot_anomalies=True)
+
             st.pyplot(fig5)
 
     if page == "Regression":
@@ -505,6 +512,49 @@ def main():
                 plt.show()
             plot8 = value_bar_chart()
             st.pyplot(plot8)
+    if page == "Player Stats":
+        df = pd.read_csv('cleaned_data.csv')
+        most_important_features = ['Age', 'Potential', 'Finishing', 'Reactions', 'Dribbling', 'BallControl', 'LongShots', 'Volleys', 'Vision']
+        df_subset = df.loc[:,['Name']+most_important_features]
+        categories = list(df_subset)[2:]
+        N = len(categories)
+
+        chosen_name = st.text_input("Choose a player")
+
+        if chosen_name:
+            values = df_subset.loc[df_subset['Name'] == chosen_name,:].drop(['Name', 'Age'], axis=1).values.flatten().tolist()
+            values += values[:1]
+            angles = [n / float(N) * 2 * pi for n in range(N)]
+            angles += angles[:1]
+
+            def create_radar_chart():
+                plt.figure(figsize=(12,8))
+
+                ax = plt.subplot(111, polar=True)
+
+                plt.xticks(angles[:-1], categories, color='grey', size=8)
+
+                ax.set_rlabel_position(0)
+
+                plt.yticks([40, 60, 80], ["40", "60", "80"], color='grey', size=7)
+                plt.ylim(0,100)
+
+                ax.plot(angles, values, linewidth=1, linestyle='solid')
+
+                ax.fill(angles, values, 'b', alpha=0.1);
+            
+            plot9 = create_radar_chart()
+            st.pyplot(plot9)
+
+            specific_player = df.loc[df["Name"] == chosen_name]
+            contract_value = specific_player["Value"].item()
+
+            st.info(f"{chosen_name} 's contract value is {contract_value}") 
+        else:
+            st.stop()
+
+
+
 
 
 if __name__ == "__main__":
