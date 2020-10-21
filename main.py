@@ -19,29 +19,40 @@ data_location = "cleaned_data.csv"
 def main():
     st.sidebar.title("Navigation")
     page = st.sidebar.radio(
-        "Choose a page", ["Homepage", "Data", "Regression", "Clustering", "Player Stats"]
+        "Choose a page", ["Homepage", "Data", "Regression", "Clustering", "Player Stats", "Predict Position"]
     )
 
     if page == "Homepage":
         # some formatting for the webapp
         st.title("FIFA 2018 Player Skills")
         img = "media/FIFA.jpg"
-        st.image(img, width=400)
-        st.markdown(
-            """
-        This is a project that uses ML to determine player pay based on their differnt skill levels
-        """
-        )
-
-        st.markdown("Our dataset includes player attributes from the popular video game FIFA 2018 by EA Sports")
-        st.markdown("The higher the player value, the better their ability in that area.")
-        st.markdown("With so many player attributes to choose from, we used Random Forest Regresssion to determine feature imporance")
-        st.markdown("Next, we selected the most important features to train our model and make predictions.")
-        st.markdown("**AGE – POTENTIAL – FINISHING – REACTIONS – DRIBBLING – BALL CONTROL – LONG SHOTS – VOLLEYS – VISION** contributed the most to our model's predictive power")
+        st.image(img, width=600)
+        st.header("Project Overview")
+        st.markdown("This project uses ML to determine player contract value based on their different skill levels.")
+        st.markdown("Player skills are ranked from 0 - 100 and are derived from the popular video game FIFA 2018 by EA Sports.")
+        st.header("Machine Learning")
+        st.subheader("Regressions")
+        st.markdown("Because there are many features that determine player pay, we wanted to learn more about the imporatance of each feature as a predictor.")
+        st.markdown("Random Forest Regression was used to determine the importance of each feature and we clearly saw that some features are more important than others.")
+        st.markdown("Next, we used the top features **AGE, POTENTIAL, FINISHING, REACTIONS, DRIBBLING, BALL CONTROL, LONG SHOTS, VOLLEYS, and VISION** to train a regression model.")
+        st.markdown("This model was able to predict player pay with a 73% accuracy.")
+        st.subheader("Clustering")
+        st.markdown("2 clustering algorithms were used to cluster the players by their various attributes:")
+        st.markdown(" - **K-Means**")
+        st.markdown(" - **Gaussian Mixture**")
+        st.markdown("Clustering allows for further investigation of players that share similar attributes.")
+        st.subheader("Classification")
+        st.markdown("Using a random forest classifier, we were able to predict a player's position with 30% accuracy.")
+        st.header("Contributors")
+        st.markdown("**Grant Pittman** - Streamlit/ Visualizations/ Python/ Heroku Deployment/ Machine Learning (Classification)")
+        st.markdown("**Tommy Ringo** - Machine Learning (Clustering)/ Python")
+        st.markdown("**Esaa Yamini** - Machine Learning (Regressions)/ Python")
+        st.markdown("**Patrick Wickliff** - Visualizations")
+        
         
 
     if page == "Data":
-
+        st.title("Data")
         # lets user pick how many rows they want to see in the app
         def load_data(nrows):
             data = pd.read_csv(data_location, encoding="latin1", nrows=nrows)
@@ -53,6 +64,7 @@ def main():
                 data_points = st.slider("data points", 0, 100, 50)
                 data = load_data(data_points)
                 st.subheader("Raw data")
+                st.info("Select a column to sort by that value.")
                 st.dataframe(data)
 
         
@@ -68,7 +80,7 @@ def main():
         feature_list.remove("Name")
 
         # sidebar multiselection to allow user to pick which features to use for clustering
-        st.info("Please choose a feature to see the best players")
+        st.sidebar.info("Please choose a feature to see the best players")
         chosen_features = st.sidebar.selectbox(
             "", feature_list
         )
@@ -83,6 +95,7 @@ def main():
                 plt.bar(x,y)
                 plt.title(f' Players With The Highest {chosen_features}')
                 plt.xticks(x, rotation='vertical')
+                plt.ylim(70)
 
             plot9 = feature_bar_chart()
             st.pyplot(plot9)
@@ -143,9 +156,11 @@ def main():
             fill_opacity=0.8
             ).add_to(map)
 
+        st.info("Circle size represent the average player contract value in that country. Please click a circle to learn more.")
         folium_static(map)
 
     if page == "Clustering":
+        st.title("Clustering")
         df = pd.read_csv(data_location)
 
         # only considering FIFA stats for clustering
@@ -159,7 +174,7 @@ def main():
         feature_list.remove("Name")
 
         # sidebar multiselection to allow user to pick which features to use for clustering
-        st.info("Please choose two features to compare. Consider using the most important features determined by regression")
+        st.info("Please choose two features to compare. Consider using the most important features determined by regression.")
         chosen_features = st.multiselect(
             "", feature_list
         )
@@ -242,7 +257,7 @@ def main():
 
 
                 if player:
-                    plt.scatter(df_chosen.loc[df_chosen['Name'] == player, chosen_feature1], df_chosen.loc[df_chosen['Name'] == player, chosen_feature2], color='red', s=700, marker='*', edgecolors='red', linewidths=3)
+                    plt.scatter(df_chosen.loc[df_chosen['Name'] == player, chosen_feature1], df_chosen.loc[df_chosen['Name'] == player, chosen_feature2], color='red', s=700, marker='*', edgecolors='red', linewidths=3, zorder = 10)
 
                 if show_centroids:
                     plot_centroids(clusterer.cluster_centers_)
@@ -268,74 +283,10 @@ def main():
 
 
 
-            # below is for Plot.ly but it is not working yet
-
-            # with st.beta_expander("Plotly"):
-
-            #     def plot_decision_boundaries_plotly(clusterer, df_chosen, player=None):
-            #         x_min, x_max = (
-            #             df_chosen.loc[:, chosen_feature1].min() - 1,
-            #             df_chosen.loc[:, chosen_feature1].max() + 1,
-            #         )
-            #         y_min, y_max = (
-            #             df_chosen.loc[:, chosen_feature2].min() - 1,
-            #             df_chosen.loc[:, chosen_feature2].max() + 1,
-            #         )
-            #         # maxs = df_chosen.max(axis=0) + 0.1
-            #         xx, yy = np.meshgrid(
-            #             np.arange(x_min, x_max, 0.02), np.arange(y_min, y_max, 0.02)
-            #         )
-            #         y_ = np.arange(y_min, y_max, 0.02)
-            #         Z = clusterer.predict(np.c_[xx.ravel(), yy.ravel()])
-            #         Z = Z.reshape(xx.shape)
-
-            #         trace1 = go.Heatmap(
-            #             x=xx[0], y=y_, z=Z, colorscale="Viridis", showscale=True
-            #         )
-
-            #         trace2 = go.Scatter(
-            #             x=df_chosen.loc[:, chosen_feature1],
-            #             y=df_chosen.loc[:, chosen_feature2],
-            #             mode="markers",
-            #             text=df["Name"],
-            #             marker=dict(
-            #                 size=10,
-            #                 color=df[chosen_feature1],
-            #                 colorscale="Viridis",
-            #                 line=dict(color="black", width=1),
-            #             ),
-            #         )
-
-            #         if player:
-            #             trace3 = go.Scatter(
-            #                 x=df_chosen.loc[df_chosen["Name"] == player, chosen_feature1],
-            #                 y=df_chosen.loc[df_chosen["Name"] == player, chosen_feature2],
-            #                 mode="markers",
-            #                 marker=dict(
-            #                     size=20, color="red", line=dict(color="black", width=2)
-            #                 ),
-            #             )
-            #             data = [trace1, trace2, trace3]
-            #         else:
-            #             data = [trace1, trace2]
-
-            #         layout = go.Layout(
-            #             autosize=True,
-            #             title="K-Means",
-            #             hovermode="closest",
-            #             showlegend=False,
-            #         )
-
-            #         # data = [trace1, trace2]
-            #         # fig = go.Figure(data=data, layout=layout)
-
-            #     player = st.text_input("which player are you interested in?", "L. Massi")
-
-            #     plot2 = plot_decision_boundaries_plotly(kmeans, df_chosen, player=player)
-
-            #     st.plotly_chart(plot2)
-        with st.beta_expander("Gausian Blur"):
-            gm = GaussianMixture(n_components=4, n_init=10, random_state=0)
+            
+        with st.beta_expander("Gaussian Mixture"):
+            n_components = st.slider("Please choose a k value to change the chart", 2, 8, 5)
+            gm = GaussianMixture(n_components=n_components, n_init=10, random_state=0)
             gm.fit(df_chosen.drop('Name', axis=1))
 
 
@@ -365,7 +316,7 @@ def main():
                 plt.plot(df_chosen.loc[:, chosen_feature1], df_chosen.loc[:, chosen_feature2], 'k.', markersize=10)
                 #plot_centroids(clusterer.means_, clusterer.weights_)
                 if player:
-                    plt.scatter(df_chosen.loc[df_chosen['Name'] == player, chosen_feature1], df_chosen.loc[df_chosen['Name'] == player, chosen_feature2], color='red', s=700, marker='*', edgecolors='red', linewidths=3)
+                    plt.scatter(df_chosen.loc[df_chosen['Name'] == player, chosen_feature1], df_chosen.loc[df_chosen['Name'] == player, chosen_feature2], color='red', s=700, marker='*', edgecolors='red', linewidths=3, zorder = 10)
                 if plot_anomalies:
                     densities = clusterer.score_samples(df_chosen.drop('Name', axis=1))
                     density_threshold = np.percentile(densities, 2)
@@ -384,12 +335,37 @@ def main():
 
             st.pyplot(fig5)
 
+            if st.button("Show BIC/ AIC Chart"):
+                def bic_aic_chart():
+                    gms_per_k = [GaussianMixture(n_components=k, n_init=10, random_state=0).fit(df_chosen.drop('Name', axis=1))
+                    for k in range(2, 10)]
+
+                    bics = [model.bic(df_chosen.drop('Name', axis=1)) for model in gms_per_k]
+                    aics = [model.aic(df_chosen.drop('Name', axis=1)) for model in gms_per_k]
+
+                    plt.figure(figsize=(12, 6))
+                    plt.plot(range(2, 10), bics, "bo-", label="BIC")
+                    plt.plot(range(2, 10), aics, "go--", label="AIC")
+                    plt.xlabel("$k$", fontsize=14)
+                    plt.ylabel("Information Criterion", fontsize=14)
+                    plt.axis([1, 9.5, np.min(aics) - 50, np.max(bics) + 50])
+                    plt.legend()
+                    plt.show()
+                
+                chart2 = bic_aic_chart()
+
+                st.pyplot(chart2)
+            else:
+                st.stop()
+
     if page == "Regression":
+        st.title("Regression")
         data = pd.read_csv(data_location)
 
         target = data["Value"]
         features = data.drop(
             [
+                "Overall",
                 "ID",
                 "Value",
                 "Name",
@@ -555,49 +531,144 @@ def main():
             plot8 = value_bar_chart()
             st.pyplot(plot8)
     if page == "Player Stats":
+        st.title("Player Stats")
         df = pd.read_csv('cleaned_data.csv')
         most_important_features = ['Age', 'Potential', 'Finishing', 'Reactions', 'Dribbling', 'BallControl', 'LongShots', 'Volleys', 'Vision']
         df_subset = df.loc[:,['Name']+most_important_features]
         categories = list(df_subset)[2:]
         N = len(categories)
 
-        chosen_name = st.text_input("Choose a player")
+        chosen_name1 = st.text_input("Choose a player", "Cristiano Ronaldo")
+        chosen_name2 = st.text_input("Choose a second player", "G. Chiellini")
 
-        if chosen_name:
-            values = df_subset.loc[df_subset['Name'] == chosen_name,:].drop(['Name', 'Age'], axis=1).values.flatten().tolist()
-            values += values[:1]
-            angles = [n / float(N) * 2 * pi for n in range(N)]
-            angles += angles[:1]
+        col1, col2 = st.beta_columns(2)
 
-            def create_radar_chart():
-                plt.figure(figsize=(12,8))
+        with col1:
 
-                ax = plt.subplot(111, polar=True)
+            if chosen_name1:
+                values = df_subset.loc[df_subset['Name'] == chosen_name1,:].drop(['Name', 'Age'], axis=1).values.flatten().tolist()
+                values += values[:1]
+                angles = [n / float(N) * 2 * pi for n in range(N)]
+                angles += angles[:1]
 
-                plt.xticks(angles[:-1], categories, color='grey', size=8)
+                def create_radar_chart():
+                    plt.figure(figsize=(12,8))
 
-                ax.set_rlabel_position(0)
+                    ax = plt.subplot(111, polar=True)
 
-                plt.yticks([40, 60, 80], ["40", "60", "80"], color='grey', size=7)
-                plt.ylim(0,100)
+                    plt.xticks(angles[:-1], categories, color='grey', size=8)
 
-                ax.plot(angles, values, linewidth=1, linestyle='solid')
+                    ax.set_rlabel_position(0)
 
-                ax.fill(angles, values, 'b', alpha=0.1);
+                    plt.yticks([40, 60, 80], ["40", "60", "80"], color='grey', size=7)
+                    plt.ylim(0,100)
+
+                    ax.plot(angles, values, linewidth=1, linestyle='solid')
+
+                    ax.fill(angles, values, 'b', alpha=0.1);
+                
+                plot9 = create_radar_chart()
+                st.pyplot(plot9)
+
+                specific_player = df.loc[df["Name"] == chosen_name1]
+                contract_value = specific_player["Value"].item()
+
+                st.info(f"{chosen_name1} 's contract value is {contract_value}") 
+            else:
+                st.stop()
+        with col1:
+            if chosen_name2:
+                values = df_subset.loc[df_subset['Name'] == chosen_name2,:].drop(['Name', 'Age'], axis=1).values.flatten().tolist()
+                values += values[:1]
+                angles = [n / float(N) * 2 * pi for n in range(N)]
+                angles += angles[:1]
+
+                def create_radar_chart():
+                    plt.figure(figsize=(12,8))
+
+                    ax = plt.subplot(111, polar=True)
+
+                    plt.xticks(angles[:-1], categories, color='grey', size=8)
+
+                    ax.set_rlabel_position(0)
+
+                    plt.yticks([40, 60, 80], ["40", "60", "80"], color='grey', size=7)
+                    plt.ylim(0,100)
+
+                    ax.plot(angles, values, linewidth=1, linestyle='solid')
+
+                    ax.fill(angles, values, 'b', alpha=0.1);
+                
+                plot9 = create_radar_chart()
+                st.pyplot(plot9)
+
+                specific_player = df.loc[df["Name"] == chosen_name2]
+                contract_value = specific_player["Value"].item()
+
+                st.info(f"{chosen_name2} 's contract value is {contract_value}") 
+            else:
+                st.stop()
+    if page == "Predict Position":
+        st.title("Predict Player Position")
+
+        data = pd.read_csv('cleaned_data.csv')
+
+        from sklearn.preprocessing import LabelEncoder
+        y = LabelEncoder().fit_transform(data['Position'])
+
+        encoder = LabelEncoder()
+        encoder.fit(data['Position'])
+
+        X = data.drop(["ID","Name","Nationality", "Overall","Potential","Club","Wage","Preferred Foot","International Reputation","Work Rate","Position","Jersey Number","Joined","Contract Valid Until", "Skill Moves", "Weak Foot", "Feet", "Inches"], axis=1)
+        feature_names = X.columns
+
+        from sklearn.model_selection import train_test_split
+        X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42)
+
+        from sklearn.ensemble import RandomForestClassifier
+        rf = RandomForestClassifier(n_estimators=1000)
+        
+        rf = rf.fit(X_train, y_train)
+        score = round(rf.score(X_test, y_test),2)
+
+        st.markdown(f'This model was able to predict plater position with {score} accuracy')
+
+        importances = rf.feature_importances_
+        
+        df = pd.DataFrame({'Features' : feature_names, 'Scores' : importances})
+
+
+        def create_bar_chart():
+            top_features = df.nlargest(10, "Scores")
+            a = top_features["Scores"]
+            b = top_features["Features"]
+            plt.bar(b,a)
+            plt.ylim(0.02)
             
-            plot9 = create_radar_chart()
-            st.pyplot(plot9)
+            plt.xlabel("Features")
+            plt.xticks(b, rotation='vertical')
+            plt.ylabel("Score")
 
-            specific_player = df.loc[df["Name"] == chosen_name]
-            contract_value = specific_player["Value"].item()
+        st.info("Here are the most important features for the model")
 
-            st.info(f"{chosen_name} 's contract value is {contract_value}") 
-        else:
-            st.stop()
+        col1, col2 = st.beta_columns(2)
 
+        with col1:
+            st.dataframe(df.sort_values("Scores", ascending = False))
 
+        with col2:
+            plot7 = create_bar_chart()
 
+            st.pyplot(plot7)
+        
+        chosen_player = st.text_input("Choose a player to predict their position.", "Cristiano Ronaldo")
+        chosen_df = data.loc[data["Name"] == chosen_player]
+        chosen_position = chosen_df["Position"]
+        chosen_X = chosen_df.drop(["ID","Name","Nationality", "Overall","Potential","Club","Wage","Preferred Foot","International Reputation","Work Rate","Position","Jersey Number","Joined","Contract Valid Until", "Skill Moves", "Weak Foot", "Feet", "Inches"], axis=1)
+        
+        chosen_prediction = encoder.classes_[rf.predict(chosen_X)]
 
+        st.info(f'We predict that {chosen_player} is a {chosen_prediction.item()} and he was acually a {chosen_position.item()}.')
 
 if __name__ == "__main__":
     main()
